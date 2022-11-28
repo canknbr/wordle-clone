@@ -1,25 +1,56 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ScrollView, Alert } from 'react-native';
+import { Text, View, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { colors, CLEAR, ENTER, colorsToEmoji } from '../../constants';
 import Keyboard from '../Keyboard/Keyboard';
 import { useState, useEffect } from 'react';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import words from '../../../assets/Words';
 import { getDayOfYear, copyArray } from '../utils';
 import { NUMBER_OF_TRIES } from '../constant';
 import styles from './styles';
 export default function Game() {
+  const [loaded, setLoaded] = useState(false);
   const [curRow, setCurRow] = useState(0);
   const [curCol, setCurCol] = useState(0);
   const [gameState, setGameState] = useState('playing');
   const word = words[getDayOfYear() % 31];
   const letters = word.split('');
+  const [rows, setRows] = useState(
+    new Array(NUMBER_OF_TRIES).fill(new Array(letters.length).fill(''))
+  );
   useEffect(() => {
     if (curRow > 0) {
       checkGameState();
     }
   }, [curRow]);
-
+  const storageState = async () => {
+    const data = {
+      curRow,
+      curCol,
+      gameState,
+      rows,
+    };
+    await AsyncStorage.setItem('gameState', JSON.stringify(data));
+  };
+  const restoreState = async () => {
+    const data = await AsyncStorage.getItem('gameState');
+    if (data) {
+      const { curRow, curCol, gameState, rows } = JSON.parse(data);
+      setCurRow(curRow);
+      setCurCol(curCol);
+      setGameState(gameState);
+      setRows(rows);
+      setLoaded(true);
+    }
+  };
+  useEffect(() => {
+    restoreState();
+  }, []);
+  useEffect(() => {
+    if (loaded) {
+      storageState();
+    }
+  }, [gameState, curRow, curCol, rows]);
   const checkGameState = () => {
     if (checkIfWon() && gameState !== 'won') {
       Alert.alert('Yeeeey!', 'You won!', [
@@ -38,10 +69,6 @@ export default function Game() {
   const checkIfLost = () => {
     return !checkIfWon && curRow === rows.length;
   };
-
-  const [rows, setRows] = useState(
-    new Array(NUMBER_OF_TRIES).fill(new Array(letters.length).fill(''))
-  );
 
   const onKeyPressed = key => {
     if (gameState !== 'playing') return;
@@ -104,6 +131,19 @@ export default function Game() {
   const greenCaps = getAllLetterColor(colors.primary);
   const yellowCaps = getAllLetterColor(colors.secondary);
   const greyCaps = getAllLetterColor(colors.darkgrey);
+  if (!loaded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
   return (
     <>
       <ScrollView style={styles.map}>
