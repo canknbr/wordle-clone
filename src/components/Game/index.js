@@ -5,9 +5,10 @@ import { useState, useEffect } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import words from '../../../assets/Words';
-import { getDayOfYear, copyArray } from '../utils';
+import { getDayOfYear, copyArray, getDayKey } from '../utils';
 import { NUMBER_OF_TRIES } from '../constant';
 import styles from './styles';
+import EndScreen from '../EndScreen';
 export default function Game() {
   const [loaded, setLoaded] = useState(false);
   const [curRow, setCurRow] = useState(0);
@@ -18,47 +19,65 @@ export default function Game() {
   const [rows, setRows] = useState(
     new Array(NUMBER_OF_TRIES).fill(new Array(letters.length).fill(''))
   );
+
+  let dayKey = getDayKey();
+
   useEffect(() => {
     if (curRow > 0) {
       checkGameState();
     }
   }, [curRow]);
-  const storageState = async () => {
+
+  const persistState = async () => {
     const data = {
       curRow,
       curCol,
       gameState,
       rows,
     };
-    await AsyncStorage.setItem('gameState', JSON.stringify(data));
+    try {
+      let existingDataString = await AsyncStorage.getItem('gameState');
+      let existingData = existingDataString
+        ? JSON.parse(existingDataString)
+        : {};
+
+      existingData[dayKey] = data;
+      await AsyncStorage.setItem('gameState', JSON.stringify(existingData));
+    } catch (e) {
+      console.log(e);
+    }
   };
+
   const restoreState = async () => {
     const data = await AsyncStorage.getItem('gameState');
-    if (data) {
-      const { curRow, curCol, gameState, rows } = JSON.parse(data);
+    try {
+      const parsedData = JSON.parse(data);
+      const dayData = parsedData[dayKey];
+      const { curRow, curCol, gameState, rows } = dayData;
       setCurRow(curRow);
       setCurCol(curCol);
       setGameState(gameState);
       setRows(rows);
       setLoaded(true);
+    } catch (e) {
+      console.log(e);
     }
   };
+
   useEffect(() => {
-    restoreState();
-  }, []);
-  useEffect(() => {
-    if (loaded) {
-      storageState();
+    if (!loaded) {
+      restoreState();
     }
+  }, []);
+
+  useEffect(() => {
+    persistState();
   }, [gameState, curRow, curCol, rows]);
+
   const checkGameState = () => {
     if (checkIfWon() && gameState !== 'won') {
-      Alert.alert('Yeeeey!', 'You won!', [
-        { text: 'Share', onPress: shareScore },
-      ]);
       setGameState('won');
     } else if (checkIfLost() && gameState !== 'lost') {
-      Alert.alert('Oooops!!', 'You lost!');
       setGameState('lost');
     }
   };
@@ -67,7 +86,7 @@ export default function Game() {
     return row.every((letter, i) => letter === letters[i]);
   };
   const checkIfLost = () => {
-    return !checkIfWon && curRow === rows.length;
+    return curRow === rows.length;
   };
 
   const onKeyPressed = key => {
@@ -117,20 +136,11 @@ export default function Game() {
       row.filter((cell, j) => getCellBGColor(i, j) === color)
     );
   };
-  const shareScore = () => {
-    const textMap = rows
-      .map((row, i) =>
-        row.map((cell, j) => colorsToEmoji[getCellBGColor(i, j)]).join('')
-      )
-      .filter(row => row)
-      .join('\n');
-    const text = `I won with ${curRow} tries! \n${textMap}`;
-    Clipboard.setStringAsync(text);
-  };
 
   const greenCaps = getAllLetterColor(colors.primary);
   const yellowCaps = getAllLetterColor(colors.secondary);
   const greyCaps = getAllLetterColor(colors.darkgrey);
+
   if (!loaded) {
     return (
       <View
@@ -142,6 +152,15 @@ export default function Game() {
       >
         <ActivityIndicator size="large" color="#fff" />
       </View>
+    );
+  }
+  if (gameState !== 'playing') {
+    return (
+      <EndScreen
+        won={gameState === 'won'}
+        rows={rows}
+        getCellBGColor={getCellBGColor}
+      />
     );
   }
   return (
