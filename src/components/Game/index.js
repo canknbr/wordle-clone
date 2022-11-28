@@ -9,6 +9,12 @@ import { getDayOfYear, copyArray, getDayKey } from '../utils';
 import { NUMBER_OF_TRIES } from '../constant';
 import styles from './styles';
 import EndScreen from '../EndScreen';
+import Animated, {
+  ZoomIn,
+  SlideInLeft,
+  FlipInEasyY,
+} from 'react-native-reanimated';
+
 export default function Game() {
   const [loaded, setLoaded] = useState(false);
   const [curRow, setCurRow] = useState(0);
@@ -76,6 +82,7 @@ export default function Game() {
 
   const checkGameState = () => {
     if (checkIfWon() && gameState !== 'won') {
+      Alert.alert('You won!');
       setGameState('won');
     } else if (checkIfLost() && gameState !== 'lost') {
       setGameState('lost');
@@ -140,7 +147,15 @@ export default function Game() {
   const greenCaps = getAllLetterColor(colors.primary);
   const yellowCaps = getAllLetterColor(colors.secondary);
   const greyCaps = getAllLetterColor(colors.darkgrey);
-
+  const getCellStyle = (index, indexCell) => [
+    styles.cell,
+    {
+      borderColor: isCellActive(index, indexCell)
+        ? colors.lightgrey
+        : colors.darkgrey,
+      backgroundColor: getCellBGColor(index, indexCell),
+    },
+  ];
   if (!loaded) {
     return (
       <View
@@ -155,36 +170,57 @@ export default function Game() {
     );
   }
   if (gameState !== 'playing') {
-    return (
-      <EndScreen
-        won={gameState === 'won'}
-        rows={rows}
-        getCellBGColor={getCellBGColor}
-      />
-    );
+    setTimeout(() => {
+      return (
+        <EndScreen
+          won={gameState === 'won'}
+          rows={rows}
+          getCellBGColor={getCellBGColor}
+        />
+      );
+    }, 1000);
   }
   return (
     <>
       <ScrollView style={styles.map}>
         {rows.map((row, index) => (
-          <View style={styles.row} key={index}>
+          <Animated.View
+            entering={SlideInLeft.delay(index * 100)}
+            style={styles.row}
+            key={index}
+          >
             {row.map((letter, indexCell) => (
-              <View
-                style={[
-                  styles.cell,
-                  {
-                    borderColor: isCellActive(index, indexCell)
-                      ? colors.lightgrey
-                      : colors.darkgrey,
-                    backgroundColor: getCellBGColor(index, indexCell),
-                  },
-                ]}
-                key={indexCell}
-              >
-                <Text style={styles.cellText}>{letter.toUpperCase()}</Text>
-              </View>
+              <>
+                {index < curRow && (
+                  <Animated.View
+                    entering={FlipInEasyY.delay(indexCell * 100)}
+                    key={`${index}-${indexCell} flip`}
+                    style={getCellStyle(index, indexCell)}
+                  >
+                    <Text style={styles.cellText}>{letter.toUpperCase()}</Text>
+                  </Animated.View>
+                )}
+                {index === curRow && !!letter && (
+                  <Animated.View
+                    entering={ZoomIn}
+                    key={`${indexCell}zoom`}
+                    style={getCellStyle(index, indexCell)}
+                  >
+                    <Text style={styles.cellText}>{letter.toUpperCase()}</Text>
+                  </Animated.View>
+                )}
+                {!letter && (
+                  <View
+                    key={`${indexCell}-letter
+                  `}
+                    style={getCellStyle(index, indexCell)}
+                  >
+                    <Text style={styles.cellText}>{letter.toUpperCase()}</Text>
+                  </View>
+                )}
+              </>
             ))}
-          </View>
+          </Animated.View>
         ))}
       </ScrollView>
       <Keyboard

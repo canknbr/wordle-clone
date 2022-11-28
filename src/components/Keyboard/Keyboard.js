@@ -1,6 +1,7 @@
-import { View, Text, Pressable } from "react-native";
-import { keys, ENTER, CLEAR, colors } from "../../constants";
-import styles, { keyWidth } from "./Keyboard.styles";
+import { View, Text, Pressable } from 'react-native';
+import { keys, ENTER, CLEAR, colors } from '../../constants';
+import styles, { keyWidth } from './Keyboard.styles';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 
 const Keyboard = ({
   onKeyPressed = () => {},
@@ -8,11 +9,11 @@ const Keyboard = ({
   yellowCaps = [],
   greyCaps = [],
 }) => {
-  const isLongButton = (key) => {
+  const isLongButton = key => {
     return key === ENTER || key === CLEAR;
   };
 
-  const getKeyBGColor = (key) => {
+  const getKeyBGColor = key => {
     if (greenCaps.includes(key)) {
       return colors.primary;
     }
@@ -26,10 +27,10 @@ const Keyboard = ({
   };
 
   return (
-    <View style={styles.keyboard}>
+    <Animated.View entering={SlideInDown.springify()} style={styles.keyboard}>
       {keys.map((keyRow, i) => (
         <View style={styles.row} key={`row-${i}`}>
-          {keyRow.map((key) => (
+          {keyRow.map(key => (
             <Pressable
               onPress={() => onKeyPressed(key)}
               disabled={greyCaps.includes(key)}
@@ -45,7 +46,7 @@ const Keyboard = ({
           ))}
         </View>
       ))}
-    </View>
+    </Animated.View>
   );
 };
 
